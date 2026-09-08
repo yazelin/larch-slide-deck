@@ -57,6 +57,7 @@ Larch 視覺小說平台的簡報插件卡。一張卡就是一整份 16:9 簡�
 | `qrcode.min.js` | 手機遙控的 QR（離線） |
 | `manifest.py` | 組成 `dist/card.html` 與上傳用的 `dist/slide-deck-<版>.json` |
 | `push.py` | 把一份標記檔推成某個專案裡的一張簡報卡 |
+| `split.py` | 把一份標記檔切成好幾張卡、依序接線推上同一個版子 |
 | `dev/check.mjs` | 本機驗收：同款 sandbox iframe 裡逐頁量溢出、測 N/P、結束鈕 |
 
 ## 使用
@@ -70,6 +71,24 @@ node dev/check.mjs 我的簡報.md --shots                  # 推之前先在本
 ```
 
 `push.py` 會：讀 `~/.config/larch/key`；寫入帶 `If-Match`（讀回來的 ETag），編輯器改過就被擋而不是蓋掉；專案沒導入插件就寫 `settings.plugins`（先抓版子、PUT 專案、再原樣推回）；同 id 的卡就地更新、沿用座標，其他卡不動；推完回讀比對內容與卡數，印預覽網址。
+
+### 邊講邊帶的場次：切成好幾張卡
+
+一場講述與動手交錯的直播，簡報停在原地十分鐘很浪費。把它切段，講完一段按「結束」就交還給白板，下一段從下一張卡開始：
+
+```bash
+python3 split.py --project project-xxxx --deck 我的簡報.md \
+    --breaks 6,7,8,9,10,13 --prefix deck-0909 --after deck-0909-after --dry
+```
+
+`--breaks` 給的是「新的一段從第幾頁開始」。`--dry` 先看切法與每段幾分鐘，確認了再拿掉。它會自動：
+
+- **把節奏歸零**。原檔的 `[pace=N]` 是從開場算起的累積分鐘，切段後每張卡的計時器都從 0 開始，所以改寫成這一段自己的分鐘數，超時才會正確轉紅。
+- **寫結束鈕**：「下一段：<下一段的標題>」，最後一段用檔頭的 `endLabel`。
+- **寫副標**：左上角顯示「第 N/M 段 · 這一段的標題」。
+- **接線**：一段接一段，最後接到 `--after` 指定的既有卡片。原本那張沒切的大卡（id 等於 `--prefix`）會被換掉。
+
+推之前每一段都可以單獨驗：`node dev/check.mjs dist/segments/deck-0909-2.md`。
 
 ### 在 Larch 網頁上
 

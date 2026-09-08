@@ -45,6 +45,51 @@ def load_deck(path):
         return values, parts[1]
     return {}, text
 
+def load_plugin():
+    mf = sorted(glob.glob(os.path.join(HERE, "dist", "slide-deck-*.json")))
+    if not mf: sys.exit("先跑 python3 manifest.py")
+    pdef = json.load(open(mf[-1], encoding="utf-8"))
+    return pdef, pdef["cards"][0]
+
+def coerce(values):
+    """欄位型別：編輯器的 toggle 要布林、number 要數字，從檔頭讀進來的都是字串。"""
+    for k in ("clickNav", "showEnd"):
+        if isinstance(values.get(k), str): values[k] = values[k].lower() in ("1", "true", "yes", "on")
+    if isinstance(values.get("fontScale"), str): values["fontScale"] = float(values["fontScale"])
+    return values
+
+def build_node(pdef, card, nid, title, values, prev=None, start=False):
+    """組一張簡報插件卡的節點。prev 是版子上同 id 的舊卡，用來沿用座標與較新的插件版本。"""
+    d = dict((prev or {}).get("data") or {})
+    d.update({"type": "plugin", "pluginId": pdef["id"], "pluginCardId": card["id"], "pluginName": pdef["name"],
+              "pluginCardName": card["name"], "pluginIcon": card.get("icon", "presentation"),
+              "pluginColor": card.get("color", "#b8862b"), "pluginPresentation": "fullscreen", "pluginSkippable": True,
+              "pluginFrame": {"showTitle": False, "showButton": False, "backgroundOpacity": 0},
+              "pluginAssets": [], "platforms": ["web"], "voiceMode": "off",
+              "title": title, "text": "", "pluginValues": coerce(values), "pluginReadVars": [], "pluginWriteVars": []})
+    def ver(v): return tuple(int(x) for x in str(v).split(".") if x.isdigit())
+    if ver(pdef["version"]) >= ver(d.get("pluginVersion", "0")):
+        d["pluginHtml"] = card["html"]; d["pluginVersion"] = pdef["version"]
+    if start: d["start"] = True
+    node = {"id": nid, "type": "story", "position": (prev or {}).get("position") or {"x": 0, "y": 0}, "data": d}
+    if prev and prev.get("parentId"): node["parentId"] = prev["parentId"]
+    return node
+
+def enable_plugin(pid, pdef):
+    """播放器只認 settings.plugins 裡開著的插件。整包 PUT 會清版子，所以先抓、寫完再原樣推回。"""
+    snap = api("GET", "/projects/%s" % pid); snap = snap.get("project", snap)
+    json.dump(snap, open(os.path.join(HERE, "dist", "snapshot-%s-%d.json" % (pid[-8:], int(time.time()))), "w", encoding="utf-8"), ensure_ascii=False)
+    boards = snap.get("boards") or []
+    snap.setdefault("settings", {}).setdefault("plugins", {})[pdef["id"]] = {"enabled": True, "version": pdef["version"]}
+    api("PUT", "/projects/%s" % pid, {"project": snap})
+    for bd in boards:
+        api("GET", "/projects/%s/boards/%s" % (pid, bd["id"]))
+        api("PUT", "/projects/%s/boards/%s" % (pid, bd["id"]),
+            {"name": bd.get("name"), "nodes": bd.get("nodes", []), "edges": bd.get("edges", []), "summary": "導入簡報插件後原樣推回"})
+    for bd in boards:
+        got = api("GET", "/projects/%s/boards/%s" % (pid, bd["id"])); got = got.get("board", got)
+        assert len(got.get("nodes", [])) == len(bd.get("nodes", [])), "版子 %s 卡數不符" % bd["id"]
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--project", required=True); ap.add_argument("--deck", required=True)
