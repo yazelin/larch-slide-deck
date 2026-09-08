@@ -22,12 +22,15 @@ def api(method, path, body=None):
     if method in ("PUT", "POST", "DELETE") and ETAG.get("v"): h["If-Match"] = ETAG["v"]
     req = urllib.request.Request(API + path, method=method, headers=h,
                                  data=json.dumps(body, ensure_ascii=False).encode() if body is not None else None)
-    try:
-        with urllib.request.urlopen(req, timeout=300) as r:
-            if r.headers.get("ETag"): ETAG["v"] = r.headers["ETag"]
-            return json.load(r)
-    except urllib.error.HTTPError as e:
-        sys.exit("%s %s -> %s %s" % (method, path, e.code, e.read().decode()[:300]))
+    for attempt in range(4):   # Larch 偶爾回 502「Application failed to respond」，等一下再試就好
+        try:
+            with urllib.request.urlopen(req, timeout=300) as r:
+                if r.headers.get("ETag"): ETAG["v"] = r.headers["ETag"]
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode()[:300]
+            if e.code >= 500 and attempt < 3: print("  %s %s -> %s，%d 秒後重試" % (method, path, e.code, 5 * (attempt + 1))); time.sleep(5 * (attempt + 1)); continue
+            sys.exit("%s %s -> %s %s" % (method, path, e.code, msg))
 
 def load_deck(path):
     """回 (values, content)。檔頭 `key: value` 行到第一個 --- 之前是設定；沒有冒號行就整份都是內容。"""
@@ -76,7 +79,7 @@ def main():
     d = dict((prev or {}).get("data") or {})
     d.update({"type": "plugin", "pluginId": pdef["id"], "pluginCardId": card["id"], "pluginName": pdef["name"], "pluginCardName": card["name"],
               "pluginIcon": card.get("icon", "presentation"), "pluginColor": card.get("color", "#b8862b"),
-              "pluginPresentation": "fullscreen", "pluginSkippable": True, "pluginAssets": [], "platforms": ["web"],
+              "pluginPresentation": "fullscreen", "pluginSkippable": True, "pluginFrame": {"showTitle": False, "showButton": False, "backgroundOpacity": 0}, "pluginAssets": [], "platforms": ["web"],
               "voiceMode": "off", "title": a.title, "text": "", "pluginValues": values, "pluginReadVars": [], "pluginWriteVars": []})
     def ver(v): return tuple(int(x) for x in str(v).split(".") if x.isdigit())
     if ver(pdef["version"]) >= ver(d.get("pluginVersion", "0")):

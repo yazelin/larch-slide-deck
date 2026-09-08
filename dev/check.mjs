@@ -25,12 +25,13 @@ if (parts.length > 1 && parts[0].split('\n').every(l => !l.trim() || (l.includes
 values.content = text;
 const expectSlides = text.split(/\n---\s*\n|^---\s*\n/m).filter(s => s.trim()).length;
 
+// Larch 的插件卡外框實測給卡片 1280×655（不是 720），驗收照這個高度量
 const b = await chromium.launch();
-const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const p = await b.newPage({ viewport: { width: 1280, height: 655 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|WebSocket/.test(m.text())) errs.push(m.text()); });   // 網路資源（遙控 WS、嵌站）失敗不算卡片壞
 let completed = false;
 await p.exposeFunction('__hostGot', t => { if (t === 'larch:complete') completed = true; });
-await p.setContent(`<body style="margin:0"><iframe id="f" sandbox="allow-scripts" style="width:1280px;height:720px;border:0"></iframe></body>`);
+await p.setContent(`<body style="margin:0"><iframe id="f" sandbox="allow-scripts" style="width:1280px;height:655px;border:0"></iframe></body>`);
 // 不能把卡片 HTML 內嵌在 <script> 字串裡（裡面有 </script>），用 evaluate 直接塞 srcdoc
 await p.evaluate(({ h, values }) => { const f = document.getElementById('f');
   addEventListener('message', e => { if (e.source !== f.contentWindow) return; window.__hostGot(e.data && e.data.type);
@@ -44,7 +45,7 @@ const n = await fr.evaluate(() => document.querySelectorAll('.slide').length);
 const notes = await fr.evaluate(() => document.querySelectorAll('#notes > div').length);
 const ready = await fr.evaluate(() => document.body.classList.contains('ready'));
 if (shots) fs.mkdirSync(path.join(HERE, '..', 'dist', 'shots'), { recursive: true });
-await p.mouse.click(640, 700);            // 取得焦點（下方空白）
+await p.mouse.click(200, 620);            // 取得焦點：點左下（左 1/3 是上一頁，第一頁按了不動）
 await p.keyboard.press('Home');
 for (let i = 0; i < n; i++) {
   await p.waitForTimeout(i === 0 ? 1200 : 350);
