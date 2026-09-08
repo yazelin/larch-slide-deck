@@ -17,6 +17,9 @@
   所以把它改寫成「這一段自己的分鐘數」，超時才會正確轉紅。
 - **結束鈕**：自動寫成「下一段：<下一段的標題>」，最後一段用檔頭的 endLabel。
 - **副標**：左上角顯示「第 N / 共 M 段 · 這一段的標題」，講到哪一段一眼看得到。
+- **銜接卡**：兩張連續的同種插件卡，播放器會沿用前一張留下的 iframe，第二張不會啟動
+  （larch-vn skill 記過同樣的坑）。所以每兩段之間自動插一張旁白卡隔開，順便報下一段要做什麼。
+  `--no-bridge` 可以關掉。
 """
 import argparse, json, os, re, sys
 import push   # 共用 api()、load_deck()、build_node()、load_plugin()、enable_plugin()
@@ -53,6 +56,8 @@ def main():
     ap.add_argument("--prefix", default=None, help="卡片 id 前綴，預設用檔名")
     ap.add_argument("--board", default=None); ap.add_argument("--after", default=None, help="最後一段之後要接的既有卡片 id")
     ap.add_argument("--dry", action="store_true", help="只產檔與印出切法，不寫 Larch")
+    ap.add_argument("--no-bridge", action="store_true", help="不要在兩段之間插旁白銜接卡（連兩張插件卡播放器會卡住，除非你自己隔開）")
+    ap.add_argument("--narrator", default="旁白", help="銜接卡的說話者，預設「旁白」")
     a = ap.parse_args()
 
     pid = a.project; board = a.board or "board-%s-main" % pid
@@ -112,7 +117,31 @@ def main():
     for n in keep: n["data"].pop("start", None)
     nodes = keep + nodes_new
 
-    chain = ids + ([a.after] if a.after and any(n["id"] == a.after for n in nodes) else [])
+    # 銜接卡：兩張連續的同種插件卡，播放器會沿用前一張的 iframe，第二張不啟動。中間隔一張對話卡就正常。
+    bridges = []
+    if not a.no_bridge and len(segs) > 1:
+        chars = push.api("GET", "/projects/%s/characters" % pid); chars = chars.get("characters", chars)
+        who = next((c for c in chars if c["name"] == a.narrator), None)
+        if not who:
+            push.api("POST", "/projects/%s/characters" % pid, {"name": a.narrator, "role": "旁白", "summary": "簡報段落之間的銜接。"})
+            chars = push.api("GET", "/projects/%s/characters" % pid); chars = chars.get("characters", chars)
+            who = next(c for c in chars if c["name"] == a.narrator)
+        for i, s2 in enumerate(segs[1:], start=1):
+            bid = "%s-br%d" % (prefix, i)
+            line = "接下來：%s（約 %.0f 分鐘）" % (s2["title"], s2["budget"])
+            prev = old.get(bid)
+            d = dict((prev or {}).get("data") or {})
+            d.update({"type": "dialogue", "title": "銜接 → %s" % s2["title"], "speaker": a.narrator, "characterId": who["id"],
+                      "text": line, "dialogueLines": [{"id": "l0", "speaker": a.narrator, "text": line, "emotion": ""}],
+                      "stage": {"actors": []}, "characterLayers": []})
+            n = {"id": bid, "type": "story", "position": (prev or {}).get("position") or {"x": 360 * i - 180, "y": 160}, "data": d}
+            bridges.append(n); nodes.append(n)
+
+    chain = []
+    for i, s2 in enumerate(segs):
+        if i: chain.append("%s-br%d" % (prefix, i)) if not a.no_bridge and len(segs) > 1 else None
+        chain.append(s2["id"])
+    if a.after and any(n["id"] == a.after for n in nodes): chain.append(a.after)
     edges = [e for e in b.get("edges", []) if e.get("source") not in chain]
     for x, y in zip(chain, chain[1:]):
         edges.append({"id": "e-%s-%s" % (x, y), "source": x, "target": y})
@@ -128,7 +157,8 @@ def main():
     links = {(e["source"], e["target"]) for e in got.get("edges", [])}
     for x, y in zip(chain, chain[1:]):
         assert (x, y) in links, "少了連線 %s → %s" % (x, y)
-    print("回讀 OK：nodes %d、edges %d，%d 段內容與接線都對" % (len(got["nodes"]), len(got["edges"]), len(segs)))
+    print("回讀 OK：nodes %d、edges %d，%d 段內容與接線都對%s" % (len(got["nodes"]), len(got["edges"]), len(segs),
+          "（含 %d 張銜接卡）" % len(bridges) if bridges else ""))
     pv = push.api("GET", "/projects/%s/preview?boardId=%s" % (pid, board))
     print("preview:", pv.get("playUrl") or pv.get("url"))
 
