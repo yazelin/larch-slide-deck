@@ -4,7 +4,7 @@ Larch 視覺小說平台的簡報插件卡。一張卡就是一整份 16:9 簡�
 
 - 頁型：封面、條列、表格、雙欄／三欄、程式碼、宣言；深色與淺色兩種底。
 - 操作：`←` `→` `空白鍵` `PageDown` 翻頁、`Home` `End` 首尾頁、`N` 講稿抽屜、`P` 講者主控台（縮圖跳頁、講稿、下一頁、節奏計時、開播前清單、常見問答）、`R` 計時歸零、點畫面右 2/3 下一頁、手機左右滑。
-- 手機遙控：主控台按「手機遙控」掃 QR，手機端能翻頁、看講稿、雷射筆與螢光筆。走 `deck-sync` worker 的 WebSocket，sandbox iframe 裡實測連得上。
+- 第二畫面看講稿：主控台按「手機遙控」，掃 QR 或複製網址，開在第二個視窗、第二台螢幕或手機上。那一頁有頁碼、標題、講稿全文、跳頁清單、雷射筆與螢光筆，也能翻頁，兩邊即時同步。走 `deck-sync` worker 的 WebSocket。
 - 頁內嵌外站：一行 `@embed 網址`。
 - 配色：三組預設（琥珀墨黑、桃粉霧色、薄荷深海），主色、底色、字色可各自覆寫；字級倍率可調。
 - 最後一頁出「結束」鈕，按了送 `larch:complete`，插件卡會自己接下一張卡。
@@ -44,7 +44,7 @@ Larch 視覺小說平台的簡報插件卡。一張卡就是一整份 16:9 簡�
 
 ### 標記檔的檔頭
 
-用 `push.py` 推的檔案，第一段可以放設定（每行 `鍵: 值`，到第一個 `---` 為止），鍵就是卡片欄位：`brand`、`subtitle`、`theme`（amber／peach／mint）、`accent`、`ink`、`cream`、`dayBg`、`dayAccent`、`fontScale`、`clickNav`、`remoteServer`、`showEnd`、`endLabel`、`flight`（主控台開播前清單，一行一項）、`faq`（一行一題，寫成 `問題|答案`）。
+用 `push.py` 推的檔案，第一段可以放設定（每行 `鍵: 值`，到第一個 `---` 為止），鍵就是卡片欄位：`brand`、`subtitle`、`theme`（amber／peach／mint）、`accent`、`ink`、`cream`、`dayBg`、`dayAccent`、`fontScale`、`clickNav`、`remoteServer`、`remoteRoom`、`remotePin`、`showEnd`、`endLabel`、`flight`（主控台開播前清單，一行一項）、`faq`（一行一題，寫成 `問題|答案`）。
 
 範例：`example/sample.md`（六種頁型各一）、`example/0909-larch-vn.md`（2026-09-09 直播的整份簡報，17 頁）。
 
@@ -81,7 +81,7 @@ node dev/check.mjs 我的簡報.md --shots                  # 推之前先在本
 
 ## 已知限制
 
-- 主控台的第二視窗同步（原 slide-deck 用 `localStorage` 跨視窗）在 sandbox iframe 做不到；雙螢幕要看講稿用手機遙控。
+- 第二畫面走 WebSocket，不是原 slide-deck 的 `localStorage` 跨視窗（sandbox iframe 是 opaque origin，兩邊不共用儲存空間）。效果一樣，但**房號預設每次隨機**：卡片重新載入就換一間房，第二畫面要重開。開播前就想架好第二台螢幕的話，把「遙控房號」與「遙控密碼」填死，網址就固定。房號等於進場券，取一個別人猜不到的；作品發佈到市集之後這兩個值在公開 JSON 裡看得到。
 - 沒有縮圖：主控台跳頁列表只有頁碼與標題。
 - 圖片要是網址（放素材庫拿網址，或外部圖床）。
 

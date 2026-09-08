@@ -401,6 +401,12 @@ th { white-space: nowrap; }
 #larch-end:hover { border-color: var(--amber); color: var(--amber); }
 body.present #larch-end { display: none !important; }
 .pflight:empty, .pfaq:empty { display: none; }
+.remote-url { display: flex; gap: .5rem; width: 100%; }
+.remote-url input { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, monospace; font-size: .82rem;
+  color: var(--cream); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: .55rem .7rem; }
+.remote-url button { flex: none; font: inherit; font-size: .85rem; cursor: pointer; color: var(--amber);
+  background: var(--ink); border: 1px solid var(--amber); border-radius: 8px; padding: .55rem .9rem; }
+.remote-url button:hover { background: var(--amber); color: var(--ink); }
 /* 放不下的頁逐級縮：fit() 量 scrollHeight，超過就加一級。zoom 連 vw 一起縮，比逐個字級調可靠 */
 .slide.fit1 { zoom: .93; } .slide.fit2 { zoom: .86; } .slide.fit3 { zoom: .79; } .slide.fit4 { zoom: .72; }
 </style>
@@ -432,9 +438,10 @@ body.present #larch-end { display: none !important; }
 
 <div class="remote-modal" id="remote-modal">
   <div class="remote-dialog">
-    <h3>手機無線遙控</h3>
-    <p>手機相機掃描下方 QR Code，免裝 App 即可在台上無線翻頁與即時查看講稿備忘：</p>
+    <h3>另一個畫面看講稿</h3>
+    <p>手機掃 QR，或把下面的網址開在第二個視窗／第二台螢幕。兩邊都能翻頁、看講稿備忘、用雷射筆。</p>
     <div class="remote-qr" id="remote-qr"></div>
+    <div class="remote-url"><input id="remote-link" readonly><button id="remote-copy" type="button">複製</button></div>
     <div class="remote-pin" id="remote-pin"></div>
     <button class="remote-close" id="remote-close" type="button">關閉</button>
   </div>
@@ -2933,7 +2940,9 @@ function runtime(PACE){
   endBtn.onclick = function(){ parent.postMessage({type:'larch:complete', result:'complete', payload:{}}, '*'); };
 
   // 手機遙控（WebSocket 到 deck-sync worker；sandbox iframe 打得到，實測過）
-  var roomId = 'deck-' + Math.random().toString(36).slice(2,8), roomPin = String(Math.floor(1000 + Math.random()*9000));
+  // 房號與密碼留空就隨機（每次開卡都不同）；填了就固定，可以在開播前先把遙控頁開在第二個視窗
+  var roomId = String(values.remoteRoom||'').trim() || ('deck-' + Math.random().toString(36).slice(2,8));
+  var roomPin = String(values.remotePin||'').trim() || String(Math.floor(1000 + Math.random()*9000));
   var syncWs = null;
   function initSyncSocket(){
     if (!SYNC_SERVER) return;
@@ -2981,8 +2990,16 @@ function runtime(PACE){
   premoteBtn.onclick = function(){
     var url = SYNC_SERVER + '/remote?room=' + encodeURIComponent(roomId) + '&pin=' + encodeURIComponent(roomPin);
     var qr = qrcode(0, 'M'); qr.addData(url); qr.make(); document.getElementById('remote-qr').innerHTML = qr.createSvgTag(4, 2);
+    document.getElementById('remote-link').value = url;
     document.getElementById('remote-pin').textContent = '房間: ' + roomId + ' · 密碼: ' + roomPin;
     remoteModal.classList.add('open');
+  };
+  document.getElementById('remote-copy').onclick = function(){
+    var i = document.getElementById('remote-link'), btn = this;
+    i.focus(); i.select(); i.setSelectionRange(0, i.value.length);
+    var ok = false; try { ok = document.execCommand('copy'); } catch(e){}   // opaque origin 沒有 navigator.clipboard
+    btn.textContent = ok ? '已複製' : '請手動複製';
+    setTimeout(function(){ btn.textContent = '複製'; }, 1800);
   };
   document.getElementById('remote-close').onclick = function(){ remoteModal.classList.remove('open'); };
   remoteModal.onclick = function(e){ if (e.target === remoteModal) remoteModal.classList.remove('open'); };

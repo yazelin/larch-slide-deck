@@ -37,6 +37,10 @@ fields = [
   "hint": "右 2/3 下一頁、左 1/3 上一頁；按鈕、連結、內嵌視窗上不翻。"},
  {"key": "remoteServer", "label": "手機遙控伺服器", "labelEn": "Phone remote server", "kind": "text",
   "defaultValue": "https://deck-sync.yazelinj303.workers.dev", "hint": "主控台的「手機遙控」用它配對。留空就關掉。"},
+ {"key": "remoteRoom", "label": "遙控房號（選填）", "labelEn": "Remote room (optional)", "kind": "text", "defaultValue": "",
+  "hint": "留空每次隨機。填了網址就固定，可以開播前先把遙控頁開在第二個視窗或第二台螢幕。取一個別人猜不到的。"},
+ {"key": "remotePin", "label": "遙控密碼（選填）", "labelEn": "Remote pin (optional)", "kind": "text", "defaultValue": "",
+  "hint": "留空每次隨機。房號固定的話這個也要固定，網址才不會變。"},
  {"key": "showEnd", "label": "最後一頁出「結束」鈕", "labelEn": "Show end button on last slide", "kind": "toggle", "defaultValue": True,
   "hint": "按了才接下一張卡。關掉的話玩家要按平台的略過。"},
  {"key": "endLabel", "label": "結束鈕文字", "labelEn": "End button label", "kind": "text", "defaultValue": "簡報結束，繼續"},
@@ -48,7 +52,7 @@ manifest = {
  "author": "林亞澤", "authorHandle": "yaze", "pricing": "free", "icon": "presentation",
  "categories": ["card"], "license": "MIT · 林亞澤",
  "description": "全螢幕 16:9 簡報卡。內容用 Markdown 型標記寫，一行 --- 分頁，有封面、條列、表格、雙欄、程式碼、宣言五種頁型與深淺兩種底；"
-                "←→ 翻頁、N 備註抽屜、P 講者主控台（縮圖跳頁、講稿、節奏計時）、手機掃 QR 無線遙控與雷射筆、頁內可嵌外站。"
+                "←→ 翻頁、N 備註抽屜、P 講者主控台（縮圖跳頁、講稿、節奏計時），講稿也能開在第二個視窗或手機上（掃 QR 或複製網址），附雷射筆；頁內可嵌外站。"
                 "三組配色可再覆寫主色。最後一頁出「結束」鈕接下一張卡。",
  "descriptionEn": "Fullscreen 16:9 slide deck card. Write slides in a Markdown-like markup separated by ---, with cover, bullet, table, "
                   "two-column, code and statement layouts in dark or light. Arrow keys to navigate, N for notes, P for the presenter console "
