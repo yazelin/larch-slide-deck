@@ -1,0 +1,4 @@
+dist/shots/
+dist/snapshot-*.json
+dist/last-node.json
+node_modules/
