@@ -385,7 +385,10 @@ body.ready { background: var(--ink); }
 .slide > * { flex-shrink: 0; }
 .pane-row { display: flex; gap: 3rem; align-items: center; width: 100%; }
 .pane-row > .main { flex: 1 1 0; min-width: 0; }
-.pane-row > .livewrap { flex: 0 0 32%; height: 64vh; margin: 0; resize: none; }
+.pane-row > .livewrap { flex: 0 0 32%; height: 64vh; margin: 0; }
+.pane-row > .livewrap.maxi { flex: none; }
+/* 這一區的規則排在 deck.css 之後，會壓過 .livewrap.maxi 的 96vw/96vh；補一條更精確的把它拿回來 */
+.slide .livewrap.maxi { width: 96vw; height: 96vh; }
 .slide.withpane ul.points li { font-size: clamp(.95rem, 1.6vw, 1.2rem); padding: .6rem 0 .6rem 2rem; line-height: 1.7; }
 .slide.withpane h2 { margin-bottom: 1.4rem; }
 .livewrap.full { height: 52vh; }
@@ -2816,7 +2819,9 @@ function blocks(lines, ctx){
     if (/^### /.test(l)) { out.push('<h3>'+inline(l.slice(4),'em')+'</h3>'); i++; continue; }
     if (/^## /.test(l)) { out.push('<p class="kicker">'+inline(l.slice(3),'em')+'</p>'); i++; continue; }
     if (/^# /.test(l)) { var t=inline(l.slice(2),'em'); out.push(ctx.title==='big'?'<p class="big">'+t+'</p>':'<'+ctx.title+'>'+t+'</'+ctx.title+'>'); i++; continue; }
-    if (/^@embed\s+/.test(l)) { var p=l.split(/\s+/); embeds.push({url:p[1], mode:p[2]||'right'}); i++; continue; }
+    if (/^@embed\s+/.test(l)) { var p = l.split(/\s+/), e = {url: p[1], mode: 'right', w: '', h: ''};
+      p.slice(2).forEach(function(x){ if (/^(right|full|lazy)$/.test(x)) e.mode = x; else if (!e.w) e.w = x; else if (!e.h) e.h = x; });
+      embeds.push(e); i++; continue; }
     if (/^@img\s+/.test(l)) { var q=l.split(/\s+/); out.push('<img class="shot" src="'+esc(q[1])+'" alt="'+esc(q.slice(2).join(' '))+'">'); i++; continue; }
     if (l.trim()) { var cls = ctx.para==='sub'?' class="sub"':ctx.para==='note'?' class="code-note"':''; out.push('<p'+cls+'>'+inline(l,'strong')+'</p>'); }
     i++;
@@ -2830,11 +2835,16 @@ function blocks(lines, ctx){
 var embedSeq = 0;
 function embedHtml(e, full){
   var id = 'embed-'+(++embedSeq), host = e.url.replace(/^https?:\/\//,'').replace(/\/$/,'');
-  var bar = '<div class="winbar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span>'+esc(host)+'</span></div>';
+  // 寬高可以自己指定：右側框吃 flex-basis（例如 44% 讓對方站進桌機版面），全寬框吃 width
+  var st = [];
+  if (e.w) st.push(full ? 'width:'+e.w : 'flex:0 0 '+e.w);
+  if (e.h) st.push('height:'+e.h);
   var body = e.mode==='lazy'
     ? '<button class="fsbtn" data-load="'+id+'" type="button">載入</button><div id="'+id+'-slot" class="slot" data-src="'+esc(e.url)+'">'+esc(host)+'</div>'
     : '<iframe class="livebox" src="'+esc(e.url)+'" title="'+esc(host)+'" allow="autoplay" loading="eager"></iframe>';
-  return '<div class="livewrap'+(full?' full':'')+'" id="'+id+'">'+bar+body+'</div>';
+  return '<div class="livewrap'+(full?' full':'')+'" id="'+id+'" data-host="'+esc(host)+'"'
+       + (st.length ? ' style="'+st.join(';')+'"' : '') + '>'
+       + '<button class="fsbtn alt2" data-max="'+id+'" type="button">滿版</button>' + body + '</div>';
 }
 function render(md){
   var slides = parseDeck(md), root = document.getElementById('slides'), notesEl = document.getElementById('notes'), pace = [], last = 0;
@@ -3020,6 +3030,10 @@ function runtime(PACE){
   // 鍵盤
   addEventListener('keydown', function(e){
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (document.body.classList.contains('has-maxi')) {   // 滿版時方向鍵歸裡面那份，Esc 還原
+      if (e.key === 'Escape') { var mx = document.querySelector('.livewrap.maxi');
+        var mb = mx && document.querySelector('.fsbtn[data-max="'+mx.id+'"]'); if (mb) mb.click(); }
+      return; }
     if (['ArrowRight',' ','PageDown'].indexOf(e.key) > -1) { e.preventDefault(); show(cur+1); }
     else if (['ArrowLeft','PageUp'].indexOf(e.key) > -1) { e.preventDefault(); show(cur-1); }
     else if (e.key === 'Home') { e.preventDefault(); show(0); }
@@ -3047,6 +3061,81 @@ function runtime(PACE){
     ptimer.textContent = two(Math.floor(sec/60)) + ':' + two(sec%60);
     ptimer.style.color = (paceOf(cur) && sec > paceOf(cur)*60) ? '#ff6b6b' : '#fff'; }, 1000);
 
+
+  // 內嵌框當成小視窗：標題列可拖、右下角可拉大小、還原回原位。整段照 slide-deck skill 的
+  // deck.html 搬過來，行為要跟瀏覽器版一致。一碰就浮起來：原位留一個同尺寸的佔位方塊，
+  // 框本身改成 fixed 疊在最上層，否則拉大小會把同一頁其他內容推開。
+  document.querySelectorAll('.livewrap').forEach(function(w){
+    if (w.querySelector('.winbar')) return;
+    var bar = document.createElement('div');
+    bar.className = 'winbar';
+    bar.innerHTML = '<i style="background:#fb5f57"></i><i style="background:#fdbc2e"></i><i style="background:#28c840"></i>'
+      + '<button class="home" type="button" title="還原大小與位置">還原大小</button><span></span>';
+    bar.querySelector('span').textContent = w.dataset.host || '';
+    w.insertBefore(bar, w.firstChild);
+
+    var spacer = null, prevW = 0, prevH = 0, curW = 0, curH = 0;
+    function popOut(pw, ph){
+      if (spacer || w.classList.contains('maxi')) return;
+      var r = w.getBoundingClientRect(), cs = getComputedStyle(w);
+      spacer = document.createElement('div');
+      spacer.style.width = (pw || r.width) + 'px'; spacer.style.height = (ph || r.height) + 'px';
+      spacer.style.flex = 'none'; spacer.style.margin = cs.margin;
+      w.parentNode.insertBefore(spacer, w);
+      w.style.position = 'fixed'; w.style.left = r.left+'px'; w.style.top = r.top+'px';
+      w.style.width = r.width+'px'; w.style.height = r.height+'px';
+      w.style.margin = '0'; w.style.maxWidth = 'none'; w.style.zIndex = 40;
+    }
+    function putBack(){
+      w._noPop = true;
+      setTimeout(function(){ w._noPop = false; prevW = prevH = curW = curH = 0; }, 300);
+      if (spacer) { spacer.remove(); spacer = null; }
+      prevW = prevH = curW = curH = 0;
+      ['position','left','top','width','height','margin','maxWidth','zIndex'].forEach(function(k){ w.style[k]=''; });
+    }
+    var sx=0, sy=0, ox=0, oy=0, dragging=false;
+    bar.addEventListener('pointerdown', function(e){
+      if (e.target.closest('button') || w.classList.contains('maxi')) return;
+      popOut(); dragging = true; sx = e.clientX; sy = e.clientY;
+      ox = parseFloat(w.style.left)||0; oy = parseFloat(w.style.top)||0;
+      bar.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
+    });
+    bar.addEventListener('pointermove', function(e){ if (!dragging) return;
+      w.style.left = (ox + e.clientX - sx)+'px'; w.style.top = (oy + e.clientY - sy)+'px'; });
+    bar.addEventListener('pointerup', function(e){ dragging = false;
+      try { bar.releasePointerCapture(e.pointerId); } catch(err){} });
+    bar.addEventListener('click', function(e){ e.stopPropagation(); });   // 點視窗列不要翻頁
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(function(){
+        prevW = curW; prevH = curH; curW = w.offsetWidth; curH = w.offsetHeight;
+        if (!spacer && prevW && !w._noPop && !w.classList.contains('maxi')) popOut(prevW, prevH);
+      }).observe(w);
+    }
+    bar.querySelector('.home').addEventListener('click', putBack);
+    var slide = w.closest('.slide');
+    if (slide && typeof MutationObserver !== 'undefined') {
+      new MutationObserver(function(){
+        if (!slide.classList.contains('active') && spacer && !w.classList.contains('maxi')) putBack();
+      }).observe(slide, {attributes:true, attributeFilter:['class']});
+    }
+    addEventListener('resize', function(){ if (spacer && !w.classList.contains('maxi')) putBack(); });
+    w._winSave = function(){ w._noPop = true; putBack(); };
+    w._winDone = function(){ setTimeout(function(){ w._noPop = false; prevW = prevH = curW = curH = 0; }, 250); };
+  });
+
+  // 滿版與還原
+  document.querySelectorAll('.fsbtn[data-max]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var w = document.getElementById(btn.dataset.max); if (!w) return;
+      var going = !w.classList.contains('maxi');
+      if (w._winSave) { w._noPop = true; if (going) w._winSave(); }
+      w.classList.toggle('maxi');
+      if (w._winDone) w._winDone();
+      document.body.classList.toggle('has-maxi', w.classList.contains('maxi'));
+      btn.textContent = w.classList.contains('maxi') ? '還原' : '滿版';
+    });
+  });
   // 延遲載入的內嵌
   document.querySelectorAll('.fsbtn[data-load]').forEach(function(btn){
     btn.addEventListener('click', function(){ var slot = document.getElementById(btn.dataset.load + '-slot'); if (!slot || slot.tagName === 'IFRAME') return;

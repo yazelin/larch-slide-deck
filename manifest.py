@@ -6,7 +6,7 @@
 每個要用的專案都要「導入」一次；push.py 直接寫 settings.plugins 也可以。"""
 import json, os
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 ID = "slide-deck"
 
 src = open(os.path.join(HERE, "card.src.html"), encoding="utf-8").read()
@@ -20,7 +20,7 @@ open(os.path.join(HERE, "dist", "card.html"), "w", encoding="utf-8").write(html)
 SAMPLE = open(os.path.join(HERE, "example", "sample.md"), encoding="utf-8").read()
 fields = [
  {"key": "content", "label": "簡報內容", "labelEn": "Deck content", "kind": "longText", "defaultValue": SAMPLE,
-  "hint": "一頁一段，用一行 --- 分頁。頁首 [cover] [light] [statement] [cols] [dense] [pace=分鐘]；# 標題（**粗**變強調色）；## 小標；- 條列（_底線_變灰字）；| 表格 |；``` 程式碼；> 講稿備註；@embed 網址 嵌右側（加 full 全寬、lazy 按了才載）；@img 網址。一段以 <section 開頭就當手寫 HTML 原樣用。完整規格：github.com/yazelin/larch-slide-deck"},
+  "hint": "一頁一段，用一行 --- 分頁。頁首 [cover] [light] [statement] [cols] [dense] [pace=分鐘]；# 標題（**粗**變強調色）；## 小標；- 條列（_底線_變灰字）；| 表格 |；``` 程式碼；> 講稿備註；@embed 網址 嵌右側（加 full 全寬、lazy 按了才載，再加寬高例如 44% 70vh）；@img 網址。一段以 <section 開頭就當手寫 HTML 原樣用。完整規格：github.com/yazelin/larch-slide-deck"},
  {"key": "brand", "label": "左上角名稱", "labelEn": "Brand", "kind": "text", "defaultValue": "簡報"},
  {"key": "subtitle", "label": "左上角副標", "labelEn": "Subtitle", "kind": "text", "defaultValue": ""},
  {"key": "theme", "label": "配色", "labelEn": "Theme", "kind": "select", "defaultValue": "amber",
