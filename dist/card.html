@@ -389,6 +389,9 @@ body.ready { background: var(--ink); }
 .pane-row > .livewrap.maxi { flex: none; }
 /* 這一區的規則排在 deck.css 之後，會壓過 .livewrap.maxi 的 96vw/96vh；補一條更精確的把它拿回來 */
 .slide .livewrap.maxi { width: 96vw; height: 96vh; }
+/* 滿版時把上方狀態列收起來。.slide.active 有 animation，會自成一個堆疊環境，
+   框裡的 z-index 再高也蓋不過外層的狀態列，還原鈕與視窗列會被它吃掉點擊。 */
+body.has-maxi .bar { display: none; }
 .slide.withpane ul.points li { font-size: clamp(.95rem, 1.6vw, 1.2rem); padding: .6rem 0 .6rem 2rem; line-height: 1.7; }
 .slide.withpane h2 { margin-bottom: 1.4rem; }
 .livewrap.full { height: 52vh; }
