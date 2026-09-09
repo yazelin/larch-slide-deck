@@ -40,6 +40,21 @@ Larch 視覺小說平台的簡報插件卡。一張卡就是一整份 16:9 簡�
 
 標籤可以疊：`[light dense pace=8]`。
 
+### 也吃手寫 HTML
+
+一段以 `<section` 開頭就當成手寫 HTML 原樣放進去，標記那一套完全不介入，`class` 以自己寫的為準（`slide` 會自動補上）。[slide-deck skill](https://github.com/yazelin/slide-deck-skill) 的 `deck.html` 可以整段貼過來，兩種寫法能在同一份裡混用。
+
+```
+[pace=5]
+<section class="slide light">
+  <p class="kicker">HTML 寫的</p>
+  <h2>這一頁是<em>手寫 HTML</em></h2>
+</section>
+> 講稿照樣寫在這裡。
+```
+
+頁首標籤只有 `pace` 還會被讀走，其他標籤在 HTML 段落沒有作用。`@embed` 與 `@img` 同理，HTML 段落裡請直接寫 `<div class="livewrap">` 或 `<img class="shot">`。
+
 嵌站的條件：對方沒設 `X-Frame-Options`（GitHub Pages 沒有，Larch 市集頁有），而且對方站要禁得起「沒有儲存空間」的環境。這張卡是 sandbox iframe，裡面再嵌的站 origin 會是 `null`，`localStorage`、IndexedDB、Service Worker 全部一碰就丟 SecurityError，音訊要標 `crossorigin="anonymous"` 才進得了 Web Audio。這三件在格莉奇OS 與格莉奇音樂上都踩過。
 
 ### 標記檔的檔頭

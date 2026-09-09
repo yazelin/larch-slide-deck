@@ -2841,6 +2841,19 @@ function render(md){
   root.innerHTML = ''; notesEl.innerHTML = '';
   slides.forEach(function(s, idx){
     var t = s.tags, cls = ['slide']; if (t.light) cls.push('light'); if (t.statement) cls.push('statement');
+    // 這一段以 <section 開頭就當成手寫 HTML 原樣放進去（slide-deck skill 的 deck.html 可以整段貼過來）。
+    // 標記那一套完全不介入，class 以自己寫的為準，只有 [pace=N] 還會被讀走。
+    var raw = s.lines.join('\n').trim();
+    if (/^<section\b/i.test(raw)) {
+      var box = document.createElement('div'); box.innerHTML = raw;
+      var mine = box.querySelector('section');
+      if (mine) { mine.classList.add('slide'); mine.classList.remove('active'); root.appendChild(mine); }
+      var hn = document.createElement('div');
+      hn.innerHTML = s.notes.map(function(x){ return inline(x, 'b'); }).join('<br>');
+      notesEl.appendChild(hn);
+      if (t.pace) last = parseFloat(t.pace) || last; pace.push(last);
+      return;
+    }
     var ctx = {title: t.cover?'h1':t.statement?'big':'h2', para: (t.cover||t.statement)?'sub':'note', dense: !!t.dense};
     var html;
     if (t.cols) {
